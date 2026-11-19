@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#5b6cff" />
+<title>今日待办</title>
+<style>
+  :root {
+    --primary: #5b6cff;
+    --primary-dark: #4453e0;
+    --bg: #f4f6fb;
+    --card: #ffffff;
+    --text: #1f2540;
+    --muted: #8a90a6;
+    --line: #eceef6;
+    --danger: #ef5b6b;
+    --success: #23b26d;
+    --shadow: 0 8px 30px rgba(60, 72, 150, .10);
+    --radius: 16px;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  button, input { font-family: inherit; font-size: 16px; }
+  button { cursor: pointer; border: none; outline: none; }
+  .hidden { display: none !important; }
+
+  /* ---------- 主应用 ---------- */
+  #appView { max-width: 640px; margin: 0 auto; padding: 0 16px 60px; }
+  .topbar {
+    position: sticky; top: 0; z-index: 10;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 4px 14px;
+    background: linear-gradient(to bottom, var(--bg) 72%, rgba(244,246,251,0));
+  }
+  .topbar .hello h1 { margin: 0; font-size: 21px; }
+  .topbar .hello p { margin: 3px 0 0; font-size: 13px; color: var(--muted); }
+  .user-area { display: flex; align-items: center; gap: 10px; }
+  .logout-btn { background: #fff; color: var(--muted); border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px; font-size: 12px; }
+
+  .summary {
+    background: linear-gradient(135deg, #5b6cff, #8a5cff);
+    color: #fff; border-radius: var(--radius);
+    padding: 22px 22px 20px; margin: 6px 0 20px;
+    box-shadow: 0 12px 28px rgba(90, 108, 255, .32);
+    display: flex; align-items: flex-end; justify-content: space-between;
+  }
+  .summary .num { font-size: 46px; font-weight: 800; line-height: 1; }
+  .summary .label { font-size: 14px; opacity: .9; margin-top: 8px; }
+  .summary .ring { position: relative; width: 74px; height: 74px; flex: 0 0 auto; }
+  .summary .ring svg { transform: rotate(-90deg); }
+  .summary .ring .pct { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700; }
+
+  .composer { display: flex; gap: 10px; margin-bottom: 18px; }
+  .composer input {
+    flex: 1; min-width: 0; height: 50px; padding: 0 16px;
+    border: 1.5px solid var(--line); border-radius: 12px;
+    background: var(--card); color: var(--text); box-shadow: var(--shadow);
+  }
+  .composer input:focus { border-color: var(--primary); }
+  .composer .add-btn {
+    flex: 0 0 auto; width: 52px; height: 50px; border-radius: 12px;
+    background: linear-gradient(135deg, #5b6cff, #7a5cff); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 8px 18px rgba(90, 108, 255, .35);
+  }
+  .composer .add-btn svg { width: 24px; height: 24px; }
+  .composer .add-btn:disabled { opacity: .55; cursor: default; }
+  .add-hint { color: var(--danger); font-size: 12px; margin: -10px 0 14px 4px; min-height: 14px; }
+  .shake { animation: shake .32s; }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+
+  .tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+  .tabs button {
+    padding: 8px 16px; border-radius: 20px; background: #fff; color: var(--muted);
+    font-size: 13px; font-weight: 600; border: 1px solid var(--line);
+  }
+  .tabs button.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+  .todo-list { display: flex; flex-direction: column; gap: 10px; }
+  .todo-item {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--card); border-radius: 14px; padding: 14px 14px;
+    box-shadow: var(--shadow); border: 1px solid var(--line);
+  }
+  .checkbox {
+    flex: 0 0 auto; width: 24px; height: 24px; border-radius: 50%;
+    border: 2px solid #c7cbe0; background: #fff;
+    display: flex; align-items: center; justify-content: center; transition: .18s;
+  }
+  .checkbox svg { width: 14px; height: 14px; opacity: 0; transform: scale(.5); transition: .18s; }
+  .todo-item.done .checkbox { background: var(--success); border-color: var(--success); }
+  .todo-item.done .checkbox svg { opacity: 1; transform: scale(1); }
+  .todo-text { flex: 1; min-width: 0; font-size: 15px; word-break: break-word; line-height: 1.45; }
+  .todo-item.done .todo-title { color: var(--muted); text-decoration: line-through; }
+  .del-btn {
+    flex: 0 0 auto; width: 34px; height: 34px; border-radius: 10px;
+    background: #fff5f6; color: var(--danger);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .del-btn:active { background: #ffe3e7; }
+  .del-btn svg { width: 17px; height: 17px; }
+  .del-btn.confirm {
+    width: auto; padding: 0 10px; height: 34px;
+    background: var(--danger); color: #fff;
+    font-size: 12px; font-weight: 700;
+  }
+  .todo-title { display: inline-block; max-width: 100%; cursor: text; }
+  .edit-input {
+    width: 100%; padding: 7px 10px;
+    border: 1.5px solid var(--primary); border-radius: 8px;
+    background: #fff; color: var(--text); font-size: 15px;
+    text-decoration: none;
+  }
+  .todo-item.done .edit-input { text-decoration: none; }
+  .clear-done {
+    display: block; width: 100%; margin-top: 16px; padding: 12px;
+    background: #fff; color: var(--muted); border: 1px dashed #dfe3f2;
+    border-radius: 12px; font-size: 13px; font-weight: 600;
+  }
+  .clear-done:active { background: #f7f8fc; }
+
+  /* ---------- 截止日期 / 优先级 ---------- */
+  .composer-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: -6px 0 8px; }
+  .due-field {
+    display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 10px;
+    background: #fff; border: 1.5px solid var(--line); border-radius: 10px;
+    color: var(--muted); font-size: 13px;
+  }
+  .due-field input {
+    border: none; background: transparent; color: var(--text);
+    font-size: 13px; height: auto; padding: 0; width: 118px;
+  }
+  .due-field input:focus { outline: none; }
+  .prio-group { display: inline-flex; gap: 6px; }
+  .prio-btn {
+    height: 38px; padding: 0 13px; border-radius: 10px;
+    background: #fff; border: 1.5px solid var(--line);
+    color: var(--muted); font-size: 13px; font-weight: 600;
+  }
+  .prio-btn.active[data-prio="low"] { border-color: #23b26d; color: #149257; background: #eefaf3; }
+  .prio-btn.active[data-prio="medium"] { border-color: #f0b429; color: #b87b00; background: #fff8e8; }
+  .prio-btn.active[data-prio="high"] { border-color: var(--danger); color: var(--danger); background: #fff1f3; }
+
+  .todo-meta { display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap; font-size: 11px; color: #b6bbcc; }
+  .prio-tag { padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+  .prio-tag.low { color: #149257; background: #eefaf3; }
+  .prio-tag.medium { color: #b87b00; background: #fff8e8; }
+  .prio-tag.high { color: var(--danger); background: #fff1f3; }
+  .due-tag.overdue { color: var(--danger); font-weight: 700; }
+  .due-tag.today { color: #d98a00; font-weight: 700; }
+  .todo-item.done .prio-tag, .todo-item.done .due-tag { opacity: .6; }
+  .meta-editor { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; row-gap: 8px; margin-top: 10px; }
+  .meta-actions { display: inline-flex; gap: 8px; margin-left: auto; }
+  .meta-editor input[type="date"] {
+    height: 36px; padding: 0 8px; font-size: 13px;
+    border: 1.5px solid var(--line); border-radius: 9px; background: #fff; color: var(--text);
+  }
+  .meta-editor .prio-btn { height: 36px; padding: 0 11px; font-size: 12px; }
+  .mini-btn { height: 36px; padding: 0 12px; border-radius: 9px; font-size: 13px; font-weight: 600; background: #f2f4fb; color: var(--text); }
+  .mini-btn.save { background: var(--primary); color: #fff; }
+  .notice {
+    display: flex; align-items: flex-start; gap: 8px; margin-bottom: 16px;
+    padding: 12px 14px; border-radius: 12px; border: 1px solid #f5e2b8;
+    background: #fff8e8; color: #9a6a00; font-size: 12px; line-height: 1.6;
+  }
+  .notice button { flex: 0 0 auto; margin-left: auto; background: none; color: inherit; font-size: 12px; font-weight: 700; }
+
+  .empty { text-align: center; padding: 54px 20px; color: var(--muted); }
+  .empty svg { width: 66px; height: 66px; opacity: .5; margin-bottom: 12px; }
+  .empty p { margin: 0; font-size: 14px; }
+
+  .footer-note { text-align: center; color: #b6bbcc; font-size: 12px; margin-top: 28px; }
+
+  /* ---------- Toast ---------- */
+  #toast {
+    position: fixed; left: 50%; bottom: 32px; transform: translateX(-50%) translateY(20px);
+    background: rgba(31,37,64,.94); color: #fff; padding: 12px 20px; border-radius: 12px;
+    font-size: 14px; z-index: 100; opacity: 0; pointer-events: none; transition: .25s; max-width: 86%;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<!-- ========== 主应用（纯本地版，无需登录） ========== -->
+<div id="appView">
+  <div class="topbar">
+    <div class="hello">
+      <h1>今日待办</h1>
+      <p id="todayLabel"></p>
+    </div>
+    <div class="user-area">
+      <button class="logout-btn" id="exportBtn" type="button">导出</button>
+      <button class="logout-btn" id="importBtn" type="button">导入</button>
+      <input type="file" id="importFile" accept="application/json,.json" class="hidden" />
+    </div>
+  </div>
+
+  <div class="summary">
+    <div>
+      <div class="num" id="remainNum">0</div>
+      <div class="label">项任务待完成</div>
+    </div>
+    <div class="ring">
+      <svg width="74" height="74">
+        <circle cx="37" cy="37" r="31" stroke="rgba(255,255,255,.28)" stroke-width="6" fill="none"/>
+        <circle id="ringFill" cx="37" cy="37" r="31" stroke="#fff" stroke-width="6" fill="none"
+                stroke-linecap="round" stroke-dasharray="194.8" stroke-dashoffset="194.8"
+                style="transition:stroke-dashoffset .5s"/>
+      </svg>
+      <div class="pct" id="donePct">0%</div>
+    </div>
+  </div>
+
+  <div class="composer" id="composer">
+    <input id="todoInput" type="text" maxlength="120" placeholder="添加一个新的待办事项…" autocomplete="off" />
+    <button class="add-btn" id="addBtn" type="button" aria-label="添加">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+  </div>
+  <div class="composer-meta">
+    <label class="due-field">
+      <span>截止</span>
+      <input id="dueInput" type="date" />
+    </label>
+    <div class="prio-group" id="prioGroup">
+      <button class="prio-btn" data-prio="low" type="button">低</button>
+      <button class="prio-btn active" data-prio="medium" type="button">中</button>
+      <button class="prio-btn" data-prio="high" type="button">高</button>
+    </div>
+  </div>
+  <div class="add-hint" id="addHint"></div>
+
+  <div class="tabs">
+    <button class="active" data-filter="all" type="button">全部</button>
+    <button data-filter="active" type="button">待完成</button>
+    <button data-filter="done" type="button">已完成</button>
+  </div>
+
+  <div class="todo-list" id="todoList"></div>
+  <button class="clear-done hidden" id="clearDoneBtn" type="button">清除已完成</button>
+  <div class="footer-note">双击事项可编辑 · 点击灰色信息可改日期/优先级 · 数据保存在本机浏览器</div>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---------- DOM ----------
+  var $ = function (id) { return document.getElementById(id); };
+  var appView = $('appView');
+  var todoList = $('todoList'), todoInput = $('todoInput'), addHint = $('addHint');
+
+  var STORAGE_KEY = 'todo.items';   // 本机存储键名
+  var todos = [];                   // 待办列表，全部保存在浏览器本地
+  var currentFilter = 'all';
+  var confirmId = null, confirmTimer = null;  // 删除二次确认状态
+  var editing = false;              // 是否正在行内编辑
+  var addPriority = 'medium';       // 新待办默认优先级
+  var metaEditId = null;            // 正在编辑日期/优先级的待办 id
+  var metaDraft = { due_date: '', priority: 'medium' };
+
+  var PRIO_LABEL = { low: '低', medium: '中', high: '高' };
+
+  // 记住上次的筛选条件
+  try {
+    var savedFilter = localStorage.getItem('todo.filter');
+    if (savedFilter === 'all' || savedFilter === 'active' || savedFilter === 'done') currentFilter = savedFilter;
+  } catch (e) { /* 隐私模式下可能不可用，忽略 */ }
+
+  // ---------- 工具 ----------
+  var toastTimer = null;
+  function toast(msg) {
+    var t = $('toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove('show'); }, 2400);
+  }
+  function sameId(a, b) { return String(a) === String(b); }
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function setTodayLabel() {
+    var d = new Date();
+    var w = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'][d.getDay()];
+    $('todayLabel').textContent = (d.getMonth() + 1) + '月' + d.getDate() + '日 · ' + w + ' · 保持专注';
+  }
+  function pad2(n) { return String(n).padStart(2, '0'); }
+  function fmtTime(iso) {
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    var hm = pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+    var today = new Date(); today.setHours(0, 0, 0, 0);
+    var that = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    var diff = Math.round((today - that) / 86400000);
+    if (diff === 0) return '今天 ' + hm;
+    if (diff === 1) return '昨天 ' + hm;
+    return (d.getMonth() + 1) + '月' + d.getDate() + '日 ' + hm;
+  }
+
+  // ---------- 截止日期 / 优先级 ----------
+  function parseDateOnly(s) {
+    if (!s) return null;
+    var p = String(s).slice(0, 10).split('-');
+    if (p.length !== 3) return null;
+    var d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+    return isNaN(d.getTime()) ? null : d;
+  }
+  function dueText(due) {
+    var d = parseDateOnly(due);
+    if (!d) return null;
+    var today = new Date(); today.setHours(0, 0, 0, 0);
+    var diff = Math.round((d - today) / 86400000);
+    var md = (d.getMonth() + 1) + '/' + d.getDate();
+    if (diff < 0) return { text: '逾期 ' + md, cls: 'overdue' };
+    if (diff === 0) return { text: '今天截止', cls: 'today' };
+    if (diff === 1) return { text: '明天截止', cls: 'today' };
+    return { text: md + ' 截止', cls: '' };
+  }
+  function normalizeTodo(t) {
+    t.priority = PRIO_LABEL[t.priority] ? t.priority : 'medium';
+    t.due_date = t.due_date ? String(t.due_date).slice(0, 10) : null;
+    return t;
+  }
+
+  // ---------- 本地数据读写 ----------
+  function saveTodos() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
+    } catch (e) {
+      toast('保存失败：浏览器存储不可用（可能是隐私模式）');
+    }
+  }
+  function newId() {
+    return 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  }
+
+  // ---------- 待办操作（全部本地） ----------
+  function loadTodos() {
+    var raw = null;
+    try { raw = localStorage.getItem(STORAGE_KEY); } catch (e) { raw = null; }
+    var data = null;
+    if (raw) { try { data = JSON.parse(raw); } catch (e) { data = null; } }
+    todos = Array.isArray(data) ? data.map(normalizeTodo) : [];
+    resetConfirm();
+    metaEditId = null;
+    render();
+  }
+
+  function addTodo() {
+    var title = todoInput.value.trim();
+    if (!title) {
+      addHint.textContent = '任务内容不能为空';
+      todoInput.classList.remove('shake'); void todoInput.offsetWidth; todoInput.classList.add('shake');
+      todoInput.focus();
+      return;
+    }
+    addHint.textContent = '';
+    todos.unshift(normalizeTodo({
+      id: newId(),
+      title: title,
+      done: false,
+      created_at: new Date().toISOString(),
+      due_date: $('dueInput').value || null,
+      priority: addPriority
+    }));
+    saveTodos();
+    todoInput.value = '';
+    $('dueInput').value = '';
+    setAddPriority('medium');
+    todoInput.focus();
+    render();
+  }
+
+  function toggleTodo(item) {
+    item.done = !item.done;
+    saveTodos();
+    render();
+  }
+
+  function deleteTodo(id) {
+    todos = todos.filter(function (t) { return !sameId(t.id, id); });
+    saveTodos();
+    render();
+    toast('已删除');
+  }
+
+  function saveFields(item, patch) {
+    Object.keys(patch).forEach(function (k) { item[k] = patch[k]; });
+    saveTodos();
+    render();
+  }
+
+  // 行内编辑：双击进入，Enter 保存 / Esc 取消 / 失焦保存
+  function startEdit(item, row) {
+    if (editing) return;
+    editing = true;
+    var textEl = row.querySelector('.todo-text');
+    var original = item.title;
+    textEl.innerHTML = '<input class="edit-input" type="text" maxlength="120" />';
+    var input = textEl.querySelector('input');
+    input.value = original;
+    input.focus();
+    input.select();
+    var finished = false;
+    function finish(save) {
+      if (finished) return;
+      finished = true; editing = false;
+      var value = input.value.trim();
+      if (!save || !value || value === original) { render(); return; }
+      item.title = value;
+      saveTodos();
+      render();
+    }
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+      else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+    });
+    input.addEventListener('blur', function () { finish(true); });
+  }
+
+  // 清除全部已完成事项
+  function clearDone() {
+    var before = todos.length;
+    todos = todos.filter(function (t) { return !t.done; });
+    if (todos.length === before) return;
+    saveTodos();
+    render();
+    toast('已清除 ' + (before - todos.length) + ' 项已完成事项');
+  }
+
+  // ---------- 渲染 ----------
+  function render() {
+    var total = todos.length;
+    var done = todos.filter(function (t) { return t.done; }).length;
+    var remain = total - done;
+    $('remainNum').textContent = remain;
+    var pct = total ? Math.round(done / total * 100) : 0;
+    $('donePct').textContent = pct + '%';
+    $('ringFill').style.strokeDashoffset = String(194.8 * (1 - pct / 100));
+    $('clearDoneBtn').classList.toggle('hidden', done === 0);
+    $('clearDoneBtn').textContent = '清除已完成（' + done + '）';
+
+    var list = todos.filter(function (t) {
+      if (currentFilter === 'active') return !t.done;
+      if (currentFilter === 'done') return t.done;
+      return true;
+    });
+
+    if (list.length === 0) {
+      todoList.innerHTML =
+        '<div class="empty">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="#aab0c8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' +
+        '<rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>' +
+        '<p>' + (total === 0 ? '还没有待办，添加第一件事吧' : '这里暂时没有内容') + '</p></div>';
+      return;
+    }
+
+    todoList.innerHTML = list.map(function (t) {
+      var confirming = confirmId !== null && sameId(confirmId, t.id);
+      var prio = t.priority || 'medium';
+      var due = dueText(t.due_date);
+      var metaHtml;
+      if (metaEditId !== null && sameId(metaEditId, t.id)) {
+        metaHtml = '<div class="meta-editor">' +
+          '<input type="date" class="edit-due" value="' + esc(metaDraft.due_date || '') + '" />' +
+          ['low', 'medium', 'high'].map(function (p) {
+            return '<button class="prio-btn' + (metaDraft.priority === p ? ' active' : '') +
+              '" data-act="meta-prio" data-prio="' + p + '" type="button">' + PRIO_LABEL[p] + '</button>';
+          }).join('') +
+          '<span class="meta-actions">' +
+          '<button class="mini-btn save" data-act="meta-save" type="button">保存</button>' +
+          '<button class="mini-btn" data-act="meta-cancel" type="button">取消</button>' +
+          '</span>' +
+          '</div>';
+      } else {
+        metaHtml = '<div class="todo-meta">' +
+          '<span class="prio-tag ' + prio + '">' + PRIO_LABEL[prio] + '优先级</span>' +
+          (due
+            ? '<span class="due-tag ' + due.cls + '">' + due.text + '</span>'
+            : '<span class="due-tag">未设截止</span>') +
+          '<span>创建于 ' + fmtTime(t.created_at) + '</span></div>';
+      }
+      return '<div class="todo-item' + (t.done ? ' done' : '') + '" data-id="' + esc(String(t.id)) + '">' +
+        '<button class="checkbox" data-act="toggle" type="button" aria-label="切换完成状态">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4 4L19 6"/></svg>' +
+        '</button>' +
+        '<div class="todo-text"><span class="todo-title" title="双击可编辑">' + esc(t.title) + '</span>' +
+        metaHtml + '</div>' +
+        '<button class="del-btn' + (confirming ? ' confirm' : '') + '" data-act="delete" type="button" aria-label="删除">' +
+        (confirming ? '确认删除' :
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5"/></svg>') +
+        '</button></div>';
+    }).join('');
+  }
+
+  function resetConfirm() {
+    clearTimeout(confirmTimer);
+    confirmId = null;
+  }
+
+  // 展开某一项的日期/优先级编辑器
+  function startMetaEdit(item) {
+    if (editing) return;
+    metaEditId = String(item.id);
+    metaDraft = { due_date: item.due_date || '', priority: item.priority || 'medium' };
+    resetConfirm();
+    render();
+    var el = todoList.querySelector('.meta-editor .edit-due');
+    if (el) { try { el.focus(); } catch (e) { /* 忽略 */ } }
+  }
+
+  todoList.addEventListener('click', function (e) {
+    var btn = e.target.closest('button[data-act]');
+    if (btn) {
+      var row = btn.closest('.todo-item');
+      var id = row.getAttribute('data-id');
+      var item = todos.find(function (t) { return sameId(t.id, id); });
+      if (!item) return;
+      var act = btn.getAttribute('data-act');
+      if (act === 'meta-prio') {
+        metaDraft.priority = btn.getAttribute('data-prio');
+        render();
+      } else if (act === 'meta-save') {
+        var patch = { due_date: metaDraft.due_date || null, priority: metaDraft.priority };
+        metaEditId = null;
+        saveFields(item, patch);
+      } else if (act === 'meta-cancel') {
+        metaEditId = null;
+        render();
+      } else if (act === 'toggle') {
+        resetConfirm();
+        toggleTodo(item);
+      } else if (act === 'delete') {
+        // 第一次点击进入二次确认，3 秒内再点才真正删除
+        if (confirmId !== null && sameId(confirmId, id)) {
+          resetConfirm();
+          deleteTodo(id);
+          return;
+        }
+        clearTimeout(confirmTimer);
+        confirmId = id;
+        render();
+        confirmTimer = setTimeout(function () { confirmId = null; render(); }, 3000);
+      }
+      return;
+    }
+    // 点击灰色信息行 → 编辑截止日期/优先级
+    var metaLine = e.target.closest('.todo-meta');
+    if (metaLine) {
+      var rowEl = metaLine.closest('.todo-item');
+      var mid = rowEl.getAttribute('data-id');
+      var target = todos.find(function (t) { return sameId(t.id, mid); });
+      if (target) startMetaEdit(target);
+    }
+  });
+
+  // 编辑器里的日期变更写入草稿
+  todoList.addEventListener('input', function (e) {
+    if (e.target.classList && e.target.classList.contains('edit-due')) {
+      metaDraft.due_date = e.target.value || '';
+    }
+  });
+
+  // 双击标题进入行内编辑
+  todoList.addEventListener('dblclick', function (e) {
+    var titleEl = e.target.closest('.todo-title');
+    if (!titleEl) return;
+    var row = titleEl.closest('.todo-item');
+    var id = row.getAttribute('data-id');
+    var item = todos.find(function (t) { return sameId(t.id, id); });
+    if (item) startEdit(item, row);
+  });
+
+  $('addBtn').addEventListener('click', addTodo);
+  todoInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') addTodo(); });
+  todoInput.addEventListener('input', function () { if (todoInput.value.trim()) addHint.textContent = ''; });
+  $('clearDoneBtn').addEventListener('click', clearDone);
+
+  function setAddPriority(p) {
+    addPriority = p;
+    Array.prototype.forEach.call(document.querySelectorAll('#prioGroup .prio-btn'), function (b) {
+      b.classList.toggle('active', b.getAttribute('data-prio') === p);
+    });
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('#prioGroup .prio-btn'), function (b) {
+    b.addEventListener('click', function () { setAddPriority(b.getAttribute('data-prio')); });
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll('.tabs button'), function (b) {
+    if (b.getAttribute('data-filter') === currentFilter) b.classList.add('active');
+    else b.classList.remove('active');
+    b.addEventListener('click', function () {
+      Array.prototype.forEach.call(document.querySelectorAll('.tabs button'), function (x) { x.classList.remove('active'); });
+      b.classList.add('active');
+      currentFilter = b.getAttribute('data-filter');
+      try { localStorage.setItem('todo.filter', currentFilter); } catch (e) { /* 忽略 */ }
+      resetConfirm();
+      render();
+    });
+  });
+
+  // ---------- 数据导出 / 导入（本地备份） ----------
+  $('exportBtn').addEventListener('click', function () {
+    if (todos.length === 0) { toast('还没有待办可导出'); return; }
+    var blob = new Blob([JSON.stringify({
+      version: 1,
+      exported_at: new Date().toISOString(),
+      todos: todos
+    }, null, 2)], { type: 'application/json' });
+    var link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'todos-' + new Date().toISOString().slice(0, 10) + '.json';
+    link.click();
+    setTimeout(function () { URL.revokeObjectURL(link.href); }, 1000);
+    toast('已导出备份文件');
+  });
+
+  $('importBtn').addEventListener('click', function () { $('importFile').click(); });
+
+  $('importFile').addEventListener('change', function () {
+    var file = this.files && this.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      var data = null;
+      try { data = JSON.parse(String(reader.result)); } catch (e) { data = null; }
+      var incoming = data && Array.isArray(data.todos) ? data.todos : (Array.isArray(data) ? data : null);
+      if (!incoming) { toast('文件格式不正确，导入失败'); return; }
+      var existing = {};
+      todos.forEach(function (t) { existing[String(t.id)] = true; });
+      var added = 0;
+      incoming.forEach(function (t) {
+        if (!t || typeof t.title !== 'string') return;
+        var id = t.id !== undefined && t.id !== null ? String(t.id) : '';
+        if (id && existing[id]) return;           // 跳过重复
+        todos.push(normalizeTodo({
+          id: id || newId(),
+          title: t.title,
+          done: !!t.done,
+          created_at: t.created_at || new Date().toISOString(),
+          due_date: t.due_date || null,
+          priority: t.priority || 'medium'
+        }));
+        if (id) existing[id] = true;
+        added++;
+      });
+      saveTodos();
+      render();
+      toast(added ? '已导入 ' + added + ' 项待办' : '没有可导入的新待办');
+    };
+    reader.readAsText(file);
+    this.value = '';
+  });
+
+  // 启动（纯本地，无需登录）
+  setTodayLabel();
+  loadTodos();
+})();
+</script>
+</body>
+</html>
