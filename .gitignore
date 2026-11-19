@@ -1,0 +1,5 @@
+.workbuddy/
+*.genie
+project.config.json
+project.private.config.json
+.DS_Store
